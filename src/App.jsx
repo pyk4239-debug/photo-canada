@@ -337,13 +337,19 @@ export default function PhotoCanada() {
         style={{ width:"100%", maxWidth:420, overflow:"hidden", position:"relative" }}>
         <div style={{
           display:"flex",
-          transform: `translateX(calc(${slideOffset}% + ${prevCardIndex !== null ? (slideOffset <= 0 ? "100%" : "-100%") : "0px"}))`,
+          width:"100%",
+          transform: `translateX(${
+            prevCardIndex !== null
+              ? (slideOffset <= 0 ? `calc(100% + ${slideOffset}%)` : `calc(-100% + ${slideOffset}%)`)
+              : "0%"
+          })`,
           transition: isAnimating ? "transform 0.3s cubic-bezier(.4,0,.2,1)" : "none",
           willChange: "transform",
         }}>
-          {/* 이전 카드 (왼쪽에 배치) */}
+          {/* 이전 카드 - 왼쪽에서 밀려날 때 (next로 이동) */}
           {prevCardIndex !== null && slideOffset <= 0 && cards[prevCardIndex] && (
-            <div style={{ minWidth:"100%", padding:"0 16px", boxSizing:"border-box", flexShrink:0 }}>
+            <div style={{ width:"100%", flexShrink:0, padding:"0 16px", boxSizing:"border-box",
+              marginLeft:"-100%" }}>
               <CardContent card={cards[prevCardIndex]} thumbIndex={0}
                 setThumbIndex={()=>{}} onEdit={()=>{}} onDelete={()=>{}}
                 cards={cards} cardIndex={prevCardIndex} />
@@ -352,7 +358,7 @@ export default function PhotoCanada() {
 
           {/* 현재 카드 */}
           {card ? (
-            <div style={{ minWidth:"100%", padding:"0 16px", boxSizing:"border-box", flexShrink:0 }}>
+            <div style={{ width:"100%", flexShrink:0, padding:"0 16px", boxSizing:"border-box" }}>
               <CardContent
                 card={card} thumbIndex={thumbIndex}
                 setThumbIndex={setThumbIndex}
@@ -361,16 +367,16 @@ export default function PhotoCanada() {
               />
             </div>
           ) : (
-            <div style={{ minWidth:"100%", padding:"80px 16px 0", boxSizing:"border-box",
+            <div style={{ width:"100%", flexShrink:0, padding:"80px 16px 0", boxSizing:"border-box",
               color:"#bbb", fontSize:14, textAlign:"center" }}>
               <div style={{ fontSize:32, marginBottom:12 }}>📷</div>
               첫 번째 기록을 남겨보세요
             </div>
           )}
 
-          {/* 이전 카드 (오른쪽에 배치, 오른쪽에서 왼쪽으로 올 때) */}
+          {/* 이전 카드 - 오른쪽에서 올 때 (prev로 이동) */}
           {prevCardIndex !== null && slideOffset > 0 && cards[prevCardIndex] && (
-            <div style={{ minWidth:"100%", padding:"0 16px", boxSizing:"border-box", flexShrink:0 }}>
+            <div style={{ width:"100%", flexShrink:0, padding:"0 16px", boxSizing:"border-box" }}>
               <CardContent card={cards[prevCardIndex]} thumbIndex={0}
                 setThumbIndex={()=>{}} onEdit={()=>{}} onDelete={()=>{}}
                 cards={cards} cardIndex={prevCardIndex} />
