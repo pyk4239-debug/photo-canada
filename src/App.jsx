@@ -436,7 +436,7 @@ export default function PhotoCanada() {
                           setEditCard(prev => ({ ...prev, files: newFiles, fileTypes: newTypes }));
                         }}
                           style={{
-                            position:"absolute", top:-6, right:-6,
+                            position:"absolute", top:4, right:4,
                             width:20, height:20, borderRadius:"50%",
                             background:"#e74c3c", border:"none", color:"#fff",
                             fontSize:12, cursor:"pointer",
