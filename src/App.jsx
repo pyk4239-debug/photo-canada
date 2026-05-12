@@ -416,6 +416,39 @@ export default function PhotoCanada() {
             <input ref={fileInputRef} type="file" accept="image/*,video/*" multiple
               onChange={handleFileChange} style={{ display:"none" }} />
 
+            {/* 수정 시 기존 파일 목록 */}
+            {editCard && editCard.files.length > 0 && (
+              <div style={{ marginBottom:12 }}>
+                <div style={{ fontSize:12, color:"#aaa", marginBottom:8 }}>기존 파일 (×로 개별 삭제)</div>
+                <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:4 }}>
+                  {editCard.files.map((src, i) => {
+                    const isVideo = editCard.fileTypes?.[i] === "video";
+                    return (
+                      <div key={i} style={{ position:"relative", flexShrink:0 }}>
+                        {isVideo ? (
+                          <video src={src} style={{ width:72, height:72, objectFit:"cover", borderRadius:10 }} />
+                        ) : (
+                          <img src={src} alt="" style={{ width:72, height:72, objectFit:"cover", borderRadius:10 }} />
+                        )}
+                        <button onClick={() => {
+                          const newFiles = editCard.files.filter((_,j) => j!==i);
+                          const newTypes = (editCard.fileTypes || editCard.files.map(()=>"photo")).filter((_,j) => j!==i);
+                          setEditCard(prev => ({ ...prev, files: newFiles, fileTypes: newTypes }));
+                        }}
+                          style={{
+                            position:"absolute", top:-6, right:-6,
+                            width:20, height:20, borderRadius:"50%",
+                            background:"#e74c3c", border:"none", color:"#fff",
+                            fontSize:12, cursor:"pointer",
+                            display:"flex", alignItems:"center", justifyContent:"center",
+                          }}>×</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <button onClick={() => fileInputRef.current.click()}
               style={{
                 width:"100%", padding:"14px", borderRadius:12,
@@ -426,6 +459,7 @@ export default function PhotoCanada() {
               📷 사진 &nbsp;/&nbsp; 🎬 동영상 추가
             </button>
 
+            {/* 새로 추가한 파일 */}
             {formFiles.length > 0 && (
               <div style={{ display:"flex", gap:8, overflowX:"auto", marginBottom:12, paddingBottom:4 }}>
                 {formFiles.map((f, i) => (
