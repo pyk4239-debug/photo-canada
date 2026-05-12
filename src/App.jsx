@@ -114,6 +114,9 @@ export default function PhotoCanada() {
       if (cards.length > 0) {
         const latestMonth = cards[0].date.slice(0,7);
         setCurrentMonth(latestMonth);
+        // 가장 최근 날짜 = 해당 월에서 마지막 카드
+        const monthCards = cards.filter(c => c.date.startsWith(latestMonth)).sort((a,b) => a.date.localeCompare(b.date));
+        setCardIndex(monthCards.length - 1);
       }
     } catch(e) {
       console.error(e);
@@ -125,10 +128,20 @@ export default function PhotoCanada() {
   const months = [...new Set(allCards.map(c => c.date.slice(0,7)))].sort((a,b) => b.localeCompare(a));
   const cards = allCards.filter(c => c.date.startsWith(currentMonth)).sort((a,b) => a.date.localeCompare(b.date));
 
+  const [enterFrom, setEnterFrom] = useState(null); // 새 카드 진입 방향
+
   const goTo = (newIndex, dir) => {
     if (sliding) return;
+    // 1단계: 현재 카드 나가기
     setSliding(dir);
-    setTimeout(() => { setCardIndex(newIndex); setThumbIndex(0); setSliding(null); }, 220);
+    setTimeout(() => {
+      // 2단계: 새 카드 반대편에서 들어오기
+      setCardIndex(newIndex);
+      setThumbIndex(0);
+      setSliding(null);
+      setEnterFrom(dir === "left" ? "right" : "left");
+      setTimeout(() => setEnterFrom(null), 20);
+    }, 200);
   };
   const prevCard = () => { if (cardIndex > 0) goTo(cardIndex-1, "right"); };
   const nextCard = () => { if (cardIndex < cards.length-1) goTo(cardIndex+1, "left"); };
@@ -276,7 +289,8 @@ export default function PhotoCanada() {
   const monthParts = currentMonth.split("-");
   const monthLabel = currentMonth ? `${monthParts[0]}년 ${MONTH_LABELS[monthParts[1]]}` : "";
   const monthIdx = months.indexOf(currentMonth);
-  const cardTransform = sliding==="left" ? "translateX(-50px)" : sliding==="right" ? "translateX(50px)" : "translateX(0)";
+  // 나가는 카드: 방향으로 밀려나감 / 들어오는 카드: 반대편에서 들어옴
+  const cardTransform = sliding==="left" ? "translateX(-100%)" : sliding==="right" ? "translateX(100%)" : "translateX(0)";
 
   if (loading) return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
@@ -311,8 +325,12 @@ export default function PhotoCanada() {
       {card ? (
         <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
           style={{ width:"100%", maxWidth:420, padding:"0 16px",
-            transform:cardTransform,
-            transition: sliding ? "transform 0.22s cubic-bezier(.4,0,.2,1)" : "none",
+            transform: sliding
+              ? (sliding==="left" ? "translateX(-100%)" : "translateX(100%)")
+              : enterFrom
+              ? (enterFrom==="right" ? "translateX(100%)" : "translateX(-100%)")
+              : "translateX(0)",
+            transition: sliding ? "transform 0.2s cubic-bezier(.4,0,.2,1)" : enterFrom ? "none" : "transform 0.2s cubic-bezier(.4,0,.2,1)",
           }}>
           <div style={{ background:"#fff", borderRadius:16, overflow:"hidden", boxShadow:"0 2px 12px rgba(0,0,0,0.06)" }}>
             <div style={{ position:"relative", aspectRatio:"4/5", background:"#e0e0e0" }}>
