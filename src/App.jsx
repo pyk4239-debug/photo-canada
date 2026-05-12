@@ -128,20 +128,23 @@ export default function PhotoCanada() {
   const months = [...new Set(allCards.map(c => c.date.slice(0,7)))].sort((a,b) => b.localeCompare(a));
   const cards = allCards.filter(c => c.date.startsWith(currentMonth)).sort((a,b) => a.date.localeCompare(b.date));
 
-  const [enterFrom, setEnterFrom] = useState(null); // 새 카드 진입 방향
+  const [enterFrom, setEnterFrom] = useState(null);
+  const [prevCardIndex, setPrevCardIndex] = useState(null);
+  const [slideOffset, setSlideOffset] = useState(0); // 0=정지, -100=왼쪽으로, 100=오른쪽으로
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const goTo = (newIndex, dir) => {
-    if (sliding) return;
-    // 1단계: 현재 카드 나가기
-    setSliding(dir);
+    if (isAnimating) return;
+    setPrevCardIndex(cardIndex);
+    setIsAnimating(true);
+    setSlideOffset(dir === "left" ? -100 : 100);
     setTimeout(() => {
-      // 2단계: 새 카드 반대편에서 들어오기
       setCardIndex(newIndex);
       setThumbIndex(0);
-      setSliding(null);
-      setEnterFrom(dir === "left" ? "right" : "left");
-      setTimeout(() => setEnterFrom(null), 20);
-    }, 200);
+      setPrevCardIndex(null);
+      setSlideOffset(0);
+      setIsAnimating(false);
+    }, 280);
   };
   const prevCard = () => { if (cardIndex > 0) goTo(cardIndex-1, "right"); };
   const nextCard = () => { if (cardIndex < cards.length-1) goTo(cardIndex+1, "left"); };
@@ -155,6 +158,7 @@ export default function PhotoCanada() {
   };
 
   const handleTouchStart = (e) => {
+    if (isAnimating) return;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
   };
@@ -321,77 +325,48 @@ export default function PhotoCanada() {
         </div>
       </div>
 
-      {/* 카드 */}
-      {card ? (
-        <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
-          style={{ width:"100%", maxWidth:420, padding:"0 16px",
-            transform: sliding
-              ? (sliding==="left" ? "translateX(-100%)" : "translateX(100%)")
-              : enterFrom
-              ? (enterFrom==="right" ? "translateX(100%)" : "translateX(-100%)")
-              : "translateX(0)",
-            transition: sliding ? "transform 0.2s cubic-bezier(.4,0,.2,1)" : enterFrom ? "none" : "transform 0.2s cubic-bezier(.4,0,.2,1)",
-          }}>
-          <div style={{ background:"#fff", borderRadius:16, overflow:"hidden", boxShadow:"0 2px 12px rgba(0,0,0,0.06)" }}>
-            <div style={{ position:"relative", aspectRatio:"4/5", background:"#e0e0e0" }}>
-              {(card.fileTypes?.[thumbIndex] === "video") ? (
-                <video src={card.files[thumbIndex]} controls
-                  style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
-              ) : (
-                <img src={card.files[thumbIndex]} alt=""
-                  style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
-              )}
+      {/* 카드 슬라이더 */}
+      <div onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
+        style={{ width:"100%", maxWidth:420, position:"relative", overflow:"hidden" }}>
+
+        {/* 슬라이드 트랙 - 두 카드 동시 이동 */}
+        <div style={{
+          display:"flex",
+          transform: `translateX(${slideOffset}%)`,
+          transition: isAnimating ? "transform 0.28s cubic-bezier(.4,0,.2,1)" : "none",
+          willChange:"transform",
+        }}>
+          {/* 이전 카드 (애니메이션 중일 때만) */}
+          {isAnimating && prevCardIndex !== null && cards[prevCardIndex] && (
+            <div style={{ minWidth:"100%", padding:"0 16px", boxSizing:"border-box",
+              position:"absolute", left: slideOffset < 0 ? "0%" : "-100%", top:0 }}>
+              <CardContent card={cards[prevCardIndex]} thumbIndex={0}
+                setThumbIndex={()=>{}} onEdit={()=>{}} onDelete={()=>{}}
+                cards={cards} cardIndex={prevCardIndex} />
             </div>
-            {card.files.length > 1 && (
-              <div style={{ display:"flex", gap:4, padding:"8px 8px 0", overflowX:"auto" }}>
-                {card.files.map((src, i) => {
-                  const isVideo = card.fileTypes?.[i] === "video";
-                  return isVideo ? (
-                    <video key={i} src={src} onClick={() => setThumbIndex(i)}
-                      style={{
-                        width:56, height:56, flexShrink:0, objectFit:"cover", borderRadius:8,
-                        border: i===thumbIndex ? "2px solid #222" : "2px solid transparent",
-                        cursor:"pointer", opacity: i===thumbIndex ? 1 : 0.6,
-                      }} />
-                  ) : (
-                    <img key={i} src={src} alt="" onClick={() => setThumbIndex(i)}
-                      style={{
-                        width:56, height:56, flexShrink:0, objectFit:"cover", borderRadius:8,
-                        border: i===thumbIndex ? "2px solid #222" : "2px solid transparent",
-                        cursor:"pointer", opacity: i===thumbIndex ? 1 : 0.6, transition:"all 0.2s",
-                      }} />
-                  );
-                })}
-              </div>
-            )}
-            <div style={{ padding:"14px 18px 20px" }}>
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
-                <div style={{ fontSize:12, color:"#999", fontWeight:500 }}>{formatDate(card.date)}</div>
-                <div style={{ display:"flex", gap:8 }}>
-                  <button onClick={() => handleEditOpen(card)}
-                    style={{ fontSize:12, color:"#888", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>
-                    수정
-                  </button>
-                  <button onClick={() => handleDelete(card.id)}
-                    style={{ fontSize:12, color:"#e74c3c", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>
-                    삭제
-                  </button>
-                </div>
-              </div>
-              <p style={{ margin:0, fontSize:14, lineHeight:1.8, color:"#333" }}>{card.memo}</p>
+          )}
+
+          {/* 현재 카드 */}
+          {card ? (
+            <div style={{ minWidth:"100%", padding:"0 16px", boxSizing:"border-box" }}>
+              <CardContent
+                card={card}
+                thumbIndex={thumbIndex}
+                setThumbIndex={setThumbIndex}
+                onEdit={handleEditOpen}
+                onDelete={handleDelete}
+                cards={cards}
+                cardIndex={cardIndex}
+              />
             </div>
-          </div>
-          <div style={{ display:"flex", justifyContent:"space-between", padding:"12px 2px 60px", fontSize:12, color:"#bbb" }}>
-            <span>{cardIndex > 0 ? "← " + formatDate(cards[cardIndex-1].date) : ""}</span>
-            <span>{cardIndex < cards.length-1 ? formatDate(cards[cardIndex+1].date) + " →" : ""}</span>
-          </div>
+          ) : (
+            <div style={{ minWidth:"100%", color:"#bbb", fontSize:14, marginTop:80, textAlign:"center", padding:"80px 16px 0" }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>📷</div>
+              첫 번째 기록을 남겨보세요
+            </div>
+          )}
         </div>
-      ) : (
-        <div style={{ color:"#bbb", fontSize:14, marginTop:80, textAlign:"center" }}>
-          <div style={{ fontSize:32, marginBottom:12 }}>📷</div>
-          첫 번째 기록을 남겨보세요
-        </div>
-      )}
+      </div>
 
       <div style={{ position:"fixed", bottom:36, left:24, fontSize:11, color:"#ccc", letterSpacing:1 }}>
         {cards.length > 0 ? `${cardIndex+1} / ${cards.length}` : ""}
@@ -551,3 +526,63 @@ const calNavBtn = {
   color:"#555", fontSize:22,
   cursor:"pointer", padding:"2px 8px", lineHeight:1,
 };
+
+function CardContent({ card, thumbIndex, setThumbIndex, onEdit, onDelete, cards, cardIndex }) {
+  return (
+    <>
+      <div style={{ background:"#fff", borderRadius:16, overflow:"hidden", boxShadow:"0 2px 12px rgba(0,0,0,0.06)" }}>
+        <div style={{ position:"relative", aspectRatio:"4/5", background:"#e0e0e0" }}>
+          {(card.fileTypes?.[thumbIndex] === "video") ? (
+            <video src={card.files[thumbIndex]} controls
+              style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+          ) : (
+            <img src={card.files[thumbIndex]} alt=""
+              style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
+          )}
+        </div>
+        {card.files.length > 1 && (
+          <div style={{ display:"flex", gap:4, padding:"8px 8px 0", overflowX:"auto" }}>
+            {card.files.map((src, i) => {
+              const isVideo = card.fileTypes?.[i] === "video";
+              return isVideo ? (
+                <video key={i} src={src} onClick={() => setThumbIndex(i)}
+                  style={{
+                    width:56, height:56, flexShrink:0, objectFit:"cover", borderRadius:8,
+                    border: i===thumbIndex ? "2px solid #222" : "2px solid transparent",
+                    cursor:"pointer", opacity: i===thumbIndex ? 1 : 0.6,
+                  }} />
+              ) : (
+                <img key={i} src={src} alt="" onClick={() => setThumbIndex(i)}
+                  style={{
+                    width:56, height:56, flexShrink:0, objectFit:"cover", borderRadius:8,
+                    border: i===thumbIndex ? "2px solid #222" : "2px solid transparent",
+                    cursor:"pointer", opacity: i===thumbIndex ? 1 : 0.6, transition:"all 0.2s",
+                  }} />
+              );
+            })}
+          </div>
+        )}
+        <div style={{ padding:"14px 18px 20px" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+            <div style={{ fontSize:12, color:"#999", fontWeight:500 }}>{formatDate(card.date)}</div>
+            <div style={{ display:"flex", gap:8 }}>
+              <button onClick={() => onEdit(card)}
+                style={{ fontSize:12, color:"#888", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>
+                수정
+              </button>
+              <button onClick={() => onDelete(card.id)}
+                style={{ fontSize:12, color:"#e74c3c", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>
+                삭제
+              </button>
+            </div>
+          </div>
+          <p style={{ margin:0, fontSize:14, lineHeight:1.8, color:"#333" }}>{card.memo}</p>
+        </div>
+      </div>
+      <div style={{ display:"flex", justifyContent:"space-between", padding:"12px 2px 60px", fontSize:12, color:"#bbb" }}>
+        <span>{cardIndex > 0 ? "← " + formatDate(cards[cardIndex-1].date) : ""}</span>
+        <span>{cardIndex < cards.length-1 ? formatDate(cards[cardIndex+1].date) + " →" : ""}</span>
+      </div>
+    </>
+  );
+}
