@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, addDoc, getDocs, orderBy, query } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, orderBy, query, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 
 const firebaseConfig = {
@@ -87,6 +87,7 @@ export default function PhotoCanada() {
   const [thumbIndex, setThumbIndex] = useState(0);
   const [sliding, setSliding] = useState(null);
   const [showSheet, setShowSheet] = useState(false);
+  const [editCard, setEditCard] = useState(null); // 수정 대상 카드
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -194,11 +195,12 @@ export default function PhotoCanada() {
         const url = await uploadFile(formFiles[i].file);
         urls.push(url);
       }
-      const hasVideo = formFiles.some(f => f.type === "video");
+      const fileTypes = formFiles.map(f => f.type);
       const newCard = {
         date: formDate,
-        type: hasVideo ? "video" : "photo",
+        type: fileTypes.some(t => t === "video") ? "video" : "photo",
         files: urls.length > 0 ? urls : [],
+        fileTypes: fileTypes,
         memo: formMemo,
         createdAt: Date.now(),
       };
@@ -212,6 +214,60 @@ export default function PhotoCanada() {
       setShowSheet(false);
     } catch(e) {
       alert("저장 중 오류가 발생했어요: " + e.message);
+    }
+    setUploading(false);
+  };
+
+  // 삭제
+  const handleDelete = async (cardId) => {
+    if (!window.confirm("이 기록을 삭제할까요?")) return;
+    try {
+      await deleteDoc(doc(db, "cards", cardId));
+      await loadCards();
+      setCardIndex(0);
+    } catch(e) {
+      alert("삭제 중 오류: " + e.message);
+    }
+  };
+
+  // 수정 시트 열기
+  const handleEditOpen = (card) => {
+    setEditCard(card);
+    setFormDate(card.date);
+    setFormMemo(card.memo);
+    setFormFiles([]);
+    setShowSheet(true);
+  };
+
+  // 수정 저장
+  const handleUpdate = async () => {
+    if (!editCard) return;
+    setUploading(true);
+    try {
+      let newUrls = [];
+      for (let i = 0; i < formFiles.length; i++) {
+        setUploadProgress(0);
+        const url = await uploadFile(formFiles[i].file);
+        newUrls.push(url);
+      }
+      const updatedFiles = newUrls.length > 0 ? [...editCard.files, ...newUrls] : editCard.files;
+      const updatedTypes = newUrls.length > 0
+        ? [...(editCard.fileTypes || editCard.files.map(() => "photo")), ...formFiles.map(f => f.type)]
+        : (editCard.fileTypes || editCard.files.map(() => "photo"));
+      await updateDoc(doc(db, "cards", editCard.id), {
+        date: formDate,
+        memo: formMemo,
+        files: updatedFiles,
+        fileTypes: updatedTypes,
+      });
+      await loadCards();
+      setEditCard(null);
+      setFormDate(today);
+      setFormMemo("");
+      setFormFiles([]);
+      setShowSheet(false);
+    } catch(e) {
+      alert("수정 중 오류: " + e.message);
     }
     setUploading(false);
   };
@@ -260,7 +316,7 @@ export default function PhotoCanada() {
           }}>
           <div style={{ background:"#fff", borderRadius:16, overflow:"hidden", boxShadow:"0 2px 12px rgba(0,0,0,0.06)" }}>
             <div style={{ position:"relative", aspectRatio:"4/5", background:"#e0e0e0" }}>
-              {card.type === "video" ? (
+              {(card.fileTypes?.[thumbIndex] === "video") ? (
                 <video src={card.files[thumbIndex]} controls
                   style={{ width:"100%", height:"100%", objectFit:"cover", display:"block" }} />
               ) : (
@@ -270,18 +326,40 @@ export default function PhotoCanada() {
             </div>
             {card.files.length > 1 && (
               <div style={{ display:"flex", gap:4, padding:"8px 8px 0", overflowX:"auto" }}>
-                {card.files.map((src, i) => (
-                  <img key={i} src={src} alt="" onClick={() => setThumbIndex(i)}
-                    style={{
-                      width:56, height:56, flexShrink:0, objectFit:"cover", borderRadius:8,
-                      border: i===thumbIndex ? "2px solid #222" : "2px solid transparent",
-                      cursor:"pointer", opacity: i===thumbIndex ? 1 : 0.6, transition:"all 0.2s",
-                    }} />
-                ))}
+                {card.files.map((src, i) => {
+                  const isVideo = card.fileTypes?.[i] === "video";
+                  return isVideo ? (
+                    <video key={i} src={src} onClick={() => setThumbIndex(i)}
+                      style={{
+                        width:56, height:56, flexShrink:0, objectFit:"cover", borderRadius:8,
+                        border: i===thumbIndex ? "2px solid #222" : "2px solid transparent",
+                        cursor:"pointer", opacity: i===thumbIndex ? 1 : 0.6,
+                      }} />
+                  ) : (
+                    <img key={i} src={src} alt="" onClick={() => setThumbIndex(i)}
+                      style={{
+                        width:56, height:56, flexShrink:0, objectFit:"cover", borderRadius:8,
+                        border: i===thumbIndex ? "2px solid #222" : "2px solid transparent",
+                        cursor:"pointer", opacity: i===thumbIndex ? 1 : 0.6, transition:"all 0.2s",
+                      }} />
+                  );
+                })}
               </div>
             )}
             <div style={{ padding:"14px 18px 20px" }}>
-              <div style={{ fontSize:12, color:"#999", marginBottom:8, fontWeight:500 }}>{formatDate(card.date)}</div>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <div style={{ fontSize:12, color:"#999", fontWeight:500 }}>{formatDate(card.date)}</div>
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={() => handleEditOpen(card)}
+                    style={{ fontSize:12, color:"#888", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>
+                    수정
+                  </button>
+                  <button onClick={() => handleDelete(card.id)}
+                    style={{ fontSize:12, color:"#e74c3c", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>
+                    삭제
+                  </button>
+                </div>
+              </div>
               <p style={{ margin:0, fontSize:14, lineHeight:1.8, color:"#333" }}>{card.memo}</p>
             </div>
           </div>
@@ -313,7 +391,7 @@ export default function PhotoCanada() {
       {/* 등록 시트 */}
       {showSheet && (
         <>
-          <div onClick={() => { if(!uploading) setShowSheet(false); }}
+          <div onClick={() => { if(!uploading){ setShowSheet(false); setEditCard(null); setFormFiles([]); } }}
             style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:100 }} />
           <div style={{
             position:"fixed", bottom:0, left:0, right:0,
@@ -323,7 +401,9 @@ export default function PhotoCanada() {
             boxShadow:"0 -4px 30px rgba(0,0,0,0.15)",
           }}>
             <div style={{ width:36, height:4, background:"#ddd", borderRadius:2, margin:"0 auto 20px" }} />
-            <div style={{ fontSize:16, fontWeight:700, color:"#111", marginBottom:16 }}>새 기록 추가</div>
+            <div style={{ fontSize:16, fontWeight:700, color:"#111", marginBottom:16 }}>
+              {editCard ? "기록 수정" : "새 기록 추가"}
+            </div>
 
             <Calendar selected={formDate} onSelect={setFormDate} />
 
@@ -391,14 +471,14 @@ export default function PhotoCanada() {
               </div>
             )}
 
-            <button onClick={handleSave} disabled={uploading}
+            <button onClick={editCard ? handleUpdate : handleSave} disabled={uploading}
               style={{
                 width:"100%", padding:"15px", borderRadius:12,
                 background: uploading ? "#bbb" : "#222",
                 border:"none", color:"#fff",
                 fontSize:15, fontWeight:600, cursor: uploading ? "default" : "pointer",
               }}>
-              {uploading ? "저장 중..." : "저장"}
+              {uploading ? "저장 중..." : editCard ? "수정 완료" : "저장"}
             </button>
           </div>
         </>
