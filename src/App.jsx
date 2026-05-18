@@ -80,7 +80,7 @@ function Calendar({ selected, onSelect }) {
 }
 
 // ─── 카드 내용 ───────────────────────────────────────
-function CardContent({ card, thumbIndex, setThumbIndex, onEdit, onDelete, cards, cardIndex }) {
+function CardContent({ card, thumbIndex, setThumbIndex, onEdit, onDelete, cards, cardIndex, isAdmin }) {
   if (!card) return null;
   return (
     <div style={{ padding:"0 16px" }}>
@@ -108,12 +108,14 @@ function CardContent({ card, thumbIndex, setThumbIndex, onEdit, onDelete, cards,
         <div style={{ padding:"14px 18px 20px" }}>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
             <div style={{ fontSize:12, color:"#999", fontWeight:500 }}>{formatDate(card.date)}</div>
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={() => onEdit(card)}
-                style={{ fontSize:12, color:"#888", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>수정</button>
-              <button onClick={() => onDelete(card.id)}
-                style={{ fontSize:12, color:"#e74c3c", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>삭제</button>
-            </div>
+            {isAdmin && (
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={() => onEdit(card)}
+                  style={{ fontSize:12, color:"#888", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>수정</button>
+                <button onClick={() => onDelete(card.id)}
+                  style={{ fontSize:12, color:"#e74c3c", background:"none", border:"none", cursor:"pointer", padding:"2px 6px" }}>삭제</button>
+              </div>
+            )}
           </div>
           <p style={{ margin:0, fontSize:14, lineHeight:1.8, color:"#333" }}>{card.memo}</p>
         </div>
@@ -132,7 +134,7 @@ function CardContent({ card, thumbIndex, setThumbIndex, onEdit, onDelete, cards,
 // 넘길 때 세 카드 모두 동시에 같은 방향으로 translateX 이동
 const ANIM_MS = 300;
 
-function Slider({ cards, cardIndex, thumbIndex, setThumbIndex, onEdit, onDelete, onSwipe }) {
+function Slider({ cards, cardIndex, thumbIndex, setThumbIndex, onEdit, onDelete, onSwipe, isAdmin }) {
   const [displayed, setDisplayed] = useState(cardIndex); // 화면에 실제 보이는 인덱스
   const [animating, setAnimating] = useState(false);
   const [offset, setOffset] = useState(0); // 0: 정지, -100: 왼쪽으로, +100: 오른쪽으로
@@ -191,22 +193,22 @@ function Slider({ cards, cardIndex, thumbIndex, setThumbIndex, onEdit, onDelete,
       {/* 높이 기준이 되는 현재 카드 (visibility hidden으로 공간만 잡음) */}
       <div style={{ visibility:"hidden", pointerEvents:"none" }}>
         <CardContent card={curr} thumbIndex={thumbIndex} setThumbIndex={()=>{}}
-          onEdit={()=>{}} onDelete={()=>{}} cards={cards} cardIndex={displayed} />
+          onEdit={()=>{}} onDelete={()=>{}} cards={cards} cardIndex={displayed} isAdmin={false} />
       </div>
       {/* 이전 카드 (왼쪽) */}
       {prev && <div style={slideStyle(-100)}>
         <CardContent card={prev} thumbIndex={0} setThumbIndex={()=>{}}
-          onEdit={()=>{}} onDelete={()=>{}} cards={cards} cardIndex={displayed-1} />
+          onEdit={()=>{}} onDelete={()=>{}} cards={cards} cardIndex={displayed-1} isAdmin={false} />
       </div>}
       {/* 현재 카드 */}
       <div style={slideStyle(0)}>
         <CardContent card={curr} thumbIndex={thumbIndex} setThumbIndex={setThumbIndex}
-          onEdit={onEdit} onDelete={onDelete} cards={cards} cardIndex={displayed} />
+          onEdit={onEdit} onDelete={onDelete} cards={cards} cardIndex={displayed} isAdmin={isAdmin} />
       </div>
       {/* 다음 카드 (오른쪽) */}
       {next && <div style={slideStyle(100)}>
         <CardContent card={next} thumbIndex={0} setThumbIndex={()=>{}}
-          onEdit={()=>{}} onDelete={()=>{}} cards={cards} cardIndex={displayed+1} />
+          onEdit={()=>{}} onDelete={()=>{}} cards={cards} cardIndex={displayed+1} isAdmin={false} />
       </div>}
     </div>
   );
@@ -223,7 +225,11 @@ export default function PhotoCanada() {
   const [editCard, setEditCard] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const today = toYMD(new Date());
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const ADMIN_PIN = "240901"; // ← 원하는 PIN으로 변경하세요
   const [formDate, setFormDate] = useState(today);
   const [formMemo, setFormMemo] = useState("");
   const [formFiles, setFormFiles] = useState([]);
@@ -257,6 +263,18 @@ export default function PhotoCanada() {
     if (newIdx < 0 || newIdx >= months.length) return;
     setCurrentMonth(months[newIdx]);
     setCardIndex(0); setThumbIndex(0);
+  };
+
+  const handlePinSubmit = () => {
+    if (pinInput === ADMIN_PIN) {
+      setIsAdmin(true);
+      setShowPinModal(false);
+      setPinInput("");
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinInput("");
+    }
   };
 
   const handleSwipe = (dir) => {
@@ -357,6 +375,11 @@ export default function PhotoCanada() {
           <button onClick={() => changeMonth(1)} disabled={monthIdx >= months.length-1} style={navBtn(monthIdx >= months.length-1)}>‹</button>
           <span style={{ fontSize:14, color:"#555", minWidth:80, textAlign:"center", fontWeight:500 }}>{monthLabel}</span>
           <button onClick={() => changeMonth(-1)} disabled={monthIdx <= 0} style={navBtn(monthIdx <= 0)}>›</button>
+          {/* 잠금 아이콘 */}
+          <button onClick={() => isAdmin ? setIsAdmin(false) : setShowPinModal(true)}
+            style={{ background:"none", border:"none", cursor:"pointer", fontSize:18, padding:"2px 4px", lineHeight:1, opacity:0.5 }}>
+            {isAdmin ? "🔓" : "🔒"}
+          </button>
         </div>
       </div>
 
@@ -365,11 +388,11 @@ export default function PhotoCanada() {
         {cards.length > 0 ? (
           <Slider cards={cards} cardIndex={cardIndex} thumbIndex={thumbIndex}
             setThumbIndex={setThumbIndex} onEdit={handleEditOpen}
-            onDelete={handleDelete} onSwipe={handleSwipe} />
+            onDelete={handleDelete} onSwipe={handleSwipe} isAdmin={isAdmin} />
         ) : (
           <div style={{ color:"#bbb", fontSize:14, marginTop:80, textAlign:"center" }}>
             <div style={{ fontSize:32, marginBottom:12 }}>📷</div>
-            첫 번째 기록을 남겨보세요
+            {isAdmin ? "첫 번째 기록을 남겨보세요" : "기록이 없어요"}
           </div>
         )}
       </div>
@@ -379,16 +402,79 @@ export default function PhotoCanada() {
         {cards.length > 0 ? `${cardIndex+1} / ${cards.length}` : ""}
       </div>
 
-      {/* + 버튼 */}
-      <button onClick={() => { setEditCard(null); setFormDate(today); setFormMemo(""); setFormFiles([]); setShowSheet(true); }}
-        style={{
-          position:"fixed", bottom:24, right:24, width:52, height:52, borderRadius:"50%",
-          background:"#222", border:"none", color:"#fff", fontSize:26,
-          cursor:"pointer", boxShadow:"0 4px 16px rgba(0,0,0,0.18)",
-          display:"flex", alignItems:"center", justifyContent:"center",
-        }}>+</button>
+      {/* + 버튼 - 관리자만 */}
+      {isAdmin && (
+        <button onClick={() => { setEditCard(null); setFormDate(today); setFormMemo(""); setFormFiles([]); setShowSheet(true); }}
+          style={{
+            position:"fixed", bottom:24, right:24, width:52, height:52, borderRadius:"50%",
+            background:"#222", border:"none", color:"#fff", fontSize:26,
+            cursor:"pointer", boxShadow:"0 4px 16px rgba(0,0,0,0.18)",
+            display:"flex", alignItems:"center", justifyContent:"center",
+          }}>+</button>
+      )}
 
-      {/* 시트 */}
+      {/* PIN 모달 */}
+      {showPinModal && (
+        <>
+          <div onClick={() => { setShowPinModal(false); setPinInput(""); setPinError(false); }}
+            style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.4)", zIndex:200 }} />
+          <div style={{
+            position:"fixed", top:"50%", left:"50%", transform:"translate(-50%,-50%)",
+            background:"#fff", borderRadius:20, padding:"28px 24px",
+            zIndex:201, width:280, boxShadow:"0 8px 40px rgba(0,0,0,0.2)",
+          }}>
+            <div style={{ fontSize:15, fontWeight:700, color:"#111", textAlign:"center", marginBottom:20 }}>
+              🔒 관리자 로그인
+            </div>
+            {/* PIN 도트 표시 */}
+            <div style={{ display:"flex", justifyContent:"center", gap:12, marginBottom:20 }}>
+              {[0,1,2,3,4,5].map(i => (
+                <div key={i} style={{
+                  width:12, height:12, borderRadius:"50%",
+                  background: i < pinInput.length ? "#222" : "#e0e0e0",
+                  transition:"background 0.15s",
+                }} />
+              ))}
+            </div>
+            {pinError && (
+              <div style={{ fontSize:12, color:"#e74c3c", textAlign:"center", marginBottom:12 }}>
+                PIN이 틀렸어요
+              </div>
+            )}
+            {/* 숫자 키패드 */}
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 }}>
+              {[1,2,3,4,5,6,7,8,9,"",0,"←"].map((k, i) => (
+                <button key={i} onClick={() => {
+                  if (k === "←") { setPinInput(p => p.slice(0,-1)); setPinError(false); }
+                  else if (k !== "" && pinInput.length < 6) {
+                    const next = pinInput + k;
+                    setPinInput(next);
+                    setPinError(false);
+                    if (next.length === 6) {
+                      setTimeout(() => {
+                        if (next === ADMIN_PIN) {
+                          setIsAdmin(true); setShowPinModal(false); setPinInput(""); setPinError(false);
+                        } else {
+                          setPinError(true); setPinInput("");
+                        }
+                      }, 100);
+                    }
+                  }
+                }} style={{
+                  padding:"14px 0", borderRadius:12, border:"none",
+                  background: k === "" ? "transparent" : "#f5f5f5",
+                  fontSize:18, fontWeight:600, color:"#222",
+                  cursor: k === "" ? "default" : "pointer",
+                }}>
+                  {k}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* 등록/수정 시트 */}
       {showSheet && (
         <>
           <div onClick={() => { if (!uploading) { setShowSheet(false); setEditCard(null); setFormFiles([]); } }}
