@@ -225,11 +225,12 @@ export default function PhotoCanada() {
   const [editCard, setEditCard] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const today = toYMD(new Date());
   const [isAdmin, setIsAdmin] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
-  const ADMIN_PIN = "240901"; // ← 원하는 PIN으로 변경하세요
+  const ADMIN_PIN = "240901";
   const [formDate, setFormDate] = useState(today);
   const [formMemo, setFormMemo] = useState("");
   const [formFiles, setFormFiles] = useState([]);
