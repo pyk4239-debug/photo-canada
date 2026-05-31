@@ -230,7 +230,7 @@ export default function PhotoCanada() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
-  const ADMIN_PIN = "423900";
+  const ADMIN_PIN = "240901";
   const [formDate, setFormDate] = useState(today);
   const [formMemo, setFormMemo] = useState("");
   const [formFiles, setFormFiles] = useState([]);
@@ -279,8 +279,33 @@ export default function PhotoCanada() {
   };
 
   const handleSwipe = (dir) => {
-    if (dir === "left" && cardIndex < cards.length - 1) { setCardIndex(i => i+1); setThumbIndex(0); }
-    else if (dir === "right" && cardIndex > 0) { setCardIndex(i => i-1); setThumbIndex(0); }
+    if (dir === "left") {
+      if (cardIndex < cards.length - 1) {
+        // 같은 달 다음 날짜
+        setCardIndex(i => i+1); setThumbIndex(0);
+      } else {
+        // 마지막 날짜 → 다음 달 첫 날짜로
+        const idx = months.indexOf(currentMonth);
+        if (idx > 0) {
+          setCurrentMonth(months[idx - 1]);
+          setCardIndex(0); setThumbIndex(0);
+        }
+      }
+    } else if (dir === "right") {
+      if (cardIndex > 0) {
+        // 같은 달 이전 날짜
+        setCardIndex(i => i-1); setThumbIndex(0);
+      } else {
+        // 첫 날짜 → 이전 달 마지막 날짜로
+        const idx = months.indexOf(currentMonth);
+        if (idx < months.length - 1) {
+          const prevMonth = months[idx + 1];
+          const prevCards = allCards.filter(c => c.date.startsWith(prevMonth)).sort((a,b) => a.date.localeCompare(b.date));
+          setCurrentMonth(prevMonth);
+          setCardIndex(prevCards.length - 1); setThumbIndex(0);
+        }
+      }
+    }
   };
 
   const handleFileChange = (e) => {
