@@ -230,7 +230,7 @@ export default function PhotoCanada() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
-  const ADMIN_PIN = "240901";
+  const ADMIN_PIN = "423900";
   const [formDate, setFormDate] = useState(today);
   const [formMemo, setFormMemo] = useState("");
   const [formFiles, setFormFiles] = useState([]);
